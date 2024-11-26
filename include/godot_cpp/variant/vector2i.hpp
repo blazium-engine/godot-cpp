@@ -144,6 +144,21 @@ struct _NO_DISCARD_ Vector2i {
 		x = p_x;
 		y = p_y;
 	}
+	inline explicit Vector2i(int32_t p_v) {
+		x = p_v;
+		y = p_v;
+	}
+	inline Vector2i(const Vector2i &p_v) noexcept {
+		x = p_v.x;
+		y = p_v.y;
+	}
+	inline Vector2i &operator=(const Vector2i &p_v) {
+		if (this != &p_v) {
+			x = p_v.x;
+			y = p_v.y;
+		}
+		return *this;
+	}
 };
 
 // Multiplication operators required to workaround issues with LLVM using implicit conversion.
