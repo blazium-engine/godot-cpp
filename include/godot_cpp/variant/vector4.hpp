@@ -37,6 +37,7 @@
 namespace godot {
 
 class String;
+struct Vector4i;
 
 struct _NO_DISCARD_ Vector4 {
 	static const int AXIS_COUNT = 4;
@@ -124,15 +125,15 @@ struct _NO_DISCARD_ Vector4 {
 	_FORCE_INLINE_ void operator-=(const Vector4 &p_vec4);
 	_FORCE_INLINE_ void operator*=(const Vector4 &p_vec4);
 	_FORCE_INLINE_ void operator/=(const Vector4 &p_vec4);
-	_FORCE_INLINE_ void operator*=(const real_t &s);
-	_FORCE_INLINE_ void operator/=(const real_t &s);
+	_FORCE_INLINE_ void operator*=(const real_t &p_s);
+	_FORCE_INLINE_ void operator/=(const real_t &p_s);
 	_FORCE_INLINE_ Vector4 operator+(const Vector4 &p_vec4) const;
 	_FORCE_INLINE_ Vector4 operator-(const Vector4 &p_vec4) const;
 	_FORCE_INLINE_ Vector4 operator*(const Vector4 &p_vec4) const;
 	_FORCE_INLINE_ Vector4 operator/(const Vector4 &p_vec4) const;
 	_FORCE_INLINE_ Vector4 operator-() const;
-	_FORCE_INLINE_ Vector4 operator*(const real_t &s) const;
-	_FORCE_INLINE_ Vector4 operator/(const real_t &s) const;
+	_FORCE_INLINE_ Vector4 operator*(const real_t &p_s) const;
+	_FORCE_INLINE_ Vector4 operator/(const real_t &p_s) const;
 
 	_FORCE_INLINE_ bool operator==(const Vector4 &p_vec4) const;
 	_FORCE_INLINE_ bool operator!=(const Vector4 &p_vec4) const;
@@ -142,28 +143,14 @@ struct _NO_DISCARD_ Vector4 {
 	_FORCE_INLINE_ bool operator<=(const Vector4 &p_vec4) const;
 
 	operator String() const;
+	operator Vector4i() const;
 
 	_FORCE_INLINE_ Vector4() {}
-
-	_FORCE_INLINE_ Vector4(real_t p_x, real_t p_y, real_t p_z, real_t p_w) :
-			x(p_x),
-			y(p_y),
-			z(p_z),
-			w(p_w) {
-	}
-
-	Vector4(const Vector4 &p_vec4) :
-			x(p_vec4.x),
-			y(p_vec4.y),
-			z(p_vec4.z),
-			w(p_vec4.w) {
-	}
-
-	void operator=(const Vector4 &p_vec4) {
-		x = p_vec4.x;
-		y = p_vec4.y;
-		z = p_vec4.z;
-		w = p_vec4.w;
+	_FORCE_INLINE_ Vector4(real_t p_x, real_t p_y, real_t p_z, real_t p_w) {
+		x = p_x;
+		y = p_y;
+		z = p_z;
+		w = p_w;
 	}
 };
 
@@ -202,15 +189,15 @@ void Vector4::operator/=(const Vector4 &p_vec4) {
 	z /= p_vec4.z;
 	w /= p_vec4.w;
 }
-void Vector4::operator*=(const real_t &s) {
-	x *= s;
-	y *= s;
-	z *= s;
-	w *= s;
+void Vector4::operator*=(const real_t &p_s) {
+	x *= p_s;
+	y *= p_s;
+	z *= p_s;
+	w *= p_s;
 }
 
-void Vector4::operator/=(const real_t &s) {
-	*this *= 1.0f / s;
+void Vector4::operator/=(const real_t &p_s) {
+	*this *= 1.0f / p_s;
 }
 
 Vector4 Vector4::operator+(const Vector4 &p_vec4) const {
@@ -233,12 +220,12 @@ Vector4 Vector4::operator-() const {
 	return Vector4(-x, -y, -z, -w);
 }
 
-Vector4 Vector4::operator*(const real_t &s) const {
-	return Vector4(x * s, y * s, z * s, w * s);
+Vector4 Vector4::operator*(const real_t &p_s) const {
+	return Vector4(x * p_s, y * p_s, z * p_s, w * p_s);
 }
 
-Vector4 Vector4::operator/(const real_t &s) const {
-	return *this * (1.0f / s);
+Vector4 Vector4::operator/(const real_t &p_s) const {
+	return *this * (1.0f / p_s);
 }
 
 bool Vector4::operator==(const Vector4 &p_vec4) const {

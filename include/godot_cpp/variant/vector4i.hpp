@@ -92,17 +92,17 @@ struct _NO_DISCARD_ Vector4i {
 	_FORCE_INLINE_ int64_t length_squared() const;
 	_FORCE_INLINE_ double length() const;
 
-	_FORCE_INLINE_ int64_t distance_squared_to(const Vector4i &p_to) const;
-	_FORCE_INLINE_ double distance_to(const Vector4i &p_to) const;
-
 	_FORCE_INLINE_ void zero();
+
+	_FORCE_INLINE_ double distance_to(const Vector4i &p_to) const;
+	_FORCE_INLINE_ int64_t distance_squared_to(const Vector4i &p_to) const;
 
 	_FORCE_INLINE_ Vector4i abs() const;
 	_FORCE_INLINE_ Vector4i sign() const;
-	Vector4i snapped(const Vector4i &p_step) const;
-	Vector4i snappedi(int32_t p_step) const;
 	Vector4i clamp(const Vector4i &p_min, const Vector4i &p_max) const;
 	Vector4i clampi(int32_t p_min, int32_t p_max) const;
+	Vector4i snapped(const Vector4i &p_step) const;
+	Vector4i snappedi(const int32_t &p_step) const;
 
 	/* Operators */
 
@@ -154,12 +154,12 @@ double Vector4i::length() const {
 	return Math::sqrt((double)length_squared());
 }
 
-int64_t Vector4i::distance_squared_to(const Vector4i &p_to) const {
-	return (p_to - *this).length_squared();
-}
-
 double Vector4i::distance_to(const Vector4i &p_to) const {
 	return (p_to - *this).length();
+}
+
+int64_t Vector4i::distance_squared_to(const Vector4i &p_to) const {
+	return (p_to - *this).length_squared();
 }
 
 Vector4i Vector4i::abs() const {

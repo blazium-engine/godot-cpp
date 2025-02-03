@@ -36,7 +36,6 @@
 
 namespace godot {
 
-class String;
 struct Basis;
 struct Vector2;
 struct Vector3i;
@@ -105,10 +104,10 @@ struct _NO_DISCARD_ Vector3 {
 
 	_FORCE_INLINE_ void zero();
 
-	void snap(const Vector3 p_val);
-	void snapf(real_t p_val);
-	Vector3 snapped(const Vector3 p_val) const;
-	Vector3 snappedf(real_t p_val) const;
+	void snap(const Vector3 &p_step);
+	void snapf(const real_t &p_step);
+	Vector3 snapped(const Vector3 &p_step) const;
+	Vector3 snappedf(const real_t &p_step) const;
 
 	void rotate(const Vector3 &p_axis, const real_t p_angle);
 	Vector3 rotated(const Vector3 &p_axis, const real_t p_angle) const;
@@ -120,13 +119,14 @@ struct _NO_DISCARD_ Vector3 {
 	_FORCE_INLINE_ Vector3 cubic_interpolate(const Vector3 &p_b, const Vector3 &p_pre_a, const Vector3 &p_post_b, const real_t p_weight) const;
 	_FORCE_INLINE_ Vector3 cubic_interpolate_in_time(const Vector3 &p_b, const Vector3 &p_pre_a, const Vector3 &p_post_b, const real_t p_weight, const real_t &p_b_t, const real_t &p_pre_a_t, const real_t &p_post_b_t) const;
 	_FORCE_INLINE_ Vector3 bezier_interpolate(const Vector3 &p_control_1, const Vector3 &p_control_2, const Vector3 &p_end, const real_t p_t) const;
+	_FORCE_INLINE_ Vector3 bezier_derivative(const Vector3 &p_control_1, const Vector3 &p_control_2, const Vector3 &p_end, const real_t p_t) const;
 
 	Vector3 move_toward(const Vector3 &p_to, const real_t p_delta) const;
 
 	Vector2 octahedron_encode() const;
 	static Vector3 octahedron_decode(const Vector2 &p_oct);
-	Vector2 octahedron_tangent_encode(const float sign) const;
-	static Vector3 octahedron_tangent_decode(const Vector2 &p_oct, float *sign);
+	Vector2 octahedron_tangent_encode(const float p_sign) const;
+	static Vector3 octahedron_tangent_decode(const Vector2 &p_oct, float *r_sign);
 
 	_FORCE_INLINE_ Vector3 cross(const Vector3 &p_with) const;
 	_FORCE_INLINE_ real_t dot(const Vector3 &p_with) const;
@@ -213,7 +213,7 @@ Vector3 Vector3::abs() const {
 }
 
 Vector3 Vector3::sign() const {
-	return Vector3(SIGN(x), SIGN(y), SIGN(z));
+	return Vector3(Math::sign(x), Math::sign(y), Math::sign(z));
 }
 
 Vector3 Vector3::floor() const {
@@ -229,10 +229,11 @@ Vector3 Vector3::round() const {
 }
 
 Vector3 Vector3::lerp(const Vector3 &p_to, const real_t p_weight) const {
-	return Vector3(
-			x + (p_weight * (p_to.x - x)),
-			y + (p_weight * (p_to.y - y)),
-			z + (p_weight * (p_to.z - z)));
+	Vector3 res = *this;
+	res.x = Math::lerp(res.x, p_to.x, p_weight);
+	res.y = Math::lerp(res.y, p_to.y, p_weight);
+	res.z = Math::lerp(res.z, p_to.z, p_weight);
+	return res;
 }
 
 Vector3 Vector3::slerp(const Vector3 &p_to, const real_t p_weight) const {
@@ -275,15 +276,18 @@ Vector3 Vector3::cubic_interpolate_in_time(const Vector3 &p_b, const Vector3 &p_
 
 Vector3 Vector3::bezier_interpolate(const Vector3 &p_control_1, const Vector3 &p_control_2, const Vector3 &p_end, const real_t p_t) const {
 	Vector3 res = *this;
+	res.x = Math::bezier_interpolate(res.x, p_control_1.x, p_control_2.x, p_end.x, p_t);
+	res.y = Math::bezier_interpolate(res.y, p_control_1.y, p_control_2.y, p_end.y, p_t);
+	res.z = Math::bezier_interpolate(res.z, p_control_1.z, p_control_2.z, p_end.z, p_t);
+	return res;
+}
 
-	/* Formula from Wikipedia article on Bezier curves. */
-	real_t omt = (1.0 - p_t);
-	real_t omt2 = omt * omt;
-	real_t omt3 = omt2 * omt;
-	real_t t2 = p_t * p_t;
-	real_t t3 = t2 * p_t;
-
-	return res * omt3 + p_control_1 * omt2 * p_t * 3.0 + p_control_2 * omt * t2 * 3.0 + p_end * t3;
+Vector3 Vector3::bezier_derivative(const Vector3 &p_control_1, const Vector3 &p_control_2, const Vector3 &p_end, real_t p_t) const {
+	Vector3 res = *this;
+	res.x = Math::bezier_derivative(res.x, p_control_1.x, p_control_2.x, p_end.x, p_t);
+	res.y = Math::bezier_derivative(res.y, p_control_1.y, p_control_2.y, p_end.y, p_t);
+	res.z = Math::bezier_derivative(res.z, p_control_1.z, p_control_2.z, p_end.z, p_t);
+	return res;
 }
 
 real_t Vector3::distance_to(const Vector3 &p_to) const {
@@ -520,9 +524,9 @@ void Vector3::zero() {
 // slide returns the component of the vector along the given plane, specified by its normal vector.
 Vector3 Vector3::slide(const Vector3 &p_normal) const {
 #ifdef MATH_CHECKS
-	ERR_FAIL_COND_V_MSG(!p_normal.is_normalized(), Vector3(), "The normal Vector3 must be normalized.");
+	ERR_FAIL_COND_V_MSG(!p_normal.is_normalized(), Vector3(), "The normal Vector3 " + p_normal.operator String() + " must be normalized.");
 #endif
-	return *this - p_normal * this->dot(p_normal);
+	return *this - p_normal * dot(p_normal);
 }
 
 Vector3 Vector3::bounce(const Vector3 &p_normal) const {
@@ -531,9 +535,9 @@ Vector3 Vector3::bounce(const Vector3 &p_normal) const {
 
 Vector3 Vector3::reflect(const Vector3 &p_normal) const {
 #ifdef MATH_CHECKS
-	ERR_FAIL_COND_V_MSG(!p_normal.is_normalized(), Vector3(), "The normal Vector3 must be normalized.");
+	ERR_FAIL_COND_V_MSG(!p_normal.is_normalized(), Vector3(), "The normal Vector3 " + p_normal.operator String() + " must be normalized.");
 #endif
-	return 2.0f * p_normal * this->dot(p_normal) - *this;
+	return 2.0f * p_normal * dot(p_normal) - *this;
 }
 
 } // namespace godot
