@@ -1,11 +1,11 @@
 #!/bin/bash
 
-GODOT=${GODOT:-godot}
+BLAZIUM=${BLAZIUM:-blazium}
 
 END_STRING="==== TESTS FINISHED ===="
 FAILURE_STRING="******** FAILED ********"
 
-OUTPUT=$($GODOT --path project --debug --headless --quit)
+OUTPUT=$($BLAZIUM --path project --debug --headless --quit)
 ERRCODE=$?
 
 echo "$OUTPUT"

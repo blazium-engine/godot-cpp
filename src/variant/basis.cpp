@@ -37,23 +37,6 @@
 
 namespace godot {
 
-void Basis::from_z(const Vector3 &p_z) {
-	if (Math::abs(p_z.z) > (real_t)Math_SQRT12) {
-		// choose p in y-z plane
-		real_t a = p_z[1] * p_z[1] + p_z[2] * p_z[2];
-		real_t k = 1.0f / Math::sqrt(a);
-		rows[0] = Vector3(0, -p_z[2] * k, p_z[1] * k);
-		rows[1] = Vector3(a * k, -p_z[0] * rows[0][2], p_z[0] * rows[0][1]);
-	} else {
-		// choose p in x-y plane
-		real_t a = p_z.x * p_z.x + p_z.y * p_z.y;
-		real_t k = 1.0f / Math::sqrt(a);
-		rows[0] = Vector3(-p_z.y * k, p_z.x * k, 0);
-		rows[1] = Vector3(-p_z.z * rows[0].y, p_z.z * rows[0].x, a * k);
-	}
-	rows[2] = p_z;
-}
-
 void Basis::invert() {
 	real_t co[3] = {
 		cofac(1, 1, 2, 2), cofac(1, 2, 2, 0), cofac(1, 0, 2, 1)
@@ -107,13 +90,35 @@ Basis Basis::orthogonalized() const {
 	return c;
 }
 
+// Returns true if the basis vectors are orthogonal (perpendicular), so it has no skew or shear, and can be decomposed into rotation and scale.
+// See https://en.wikipedia.org/wiki/Orthogonal_basis
 bool Basis::is_orthogonal() const {
-	Basis identity;
-	Basis m = (*this) * transposed();
-
-	return m.is_equal_approx(identity);
+	const Vector3 x = get_column(0);
+	const Vector3 y = get_column(1);
+	const Vector3 z = get_column(2);
+	return Math::is_zero_approx(x.dot(y)) && Math::is_zero_approx(x.dot(z)) && Math::is_zero_approx(y.dot(z));
 }
 
+// Returns true if the basis vectors are orthonormal (orthogonal and normalized), so it has no scale, skew, or shear.
+// See https://en.wikipedia.org/wiki/Orthonormal_basis
+bool Basis::is_orthonormal() const {
+	const Vector3 x = get_column(0);
+	const Vector3 y = get_column(1);
+	const Vector3 z = get_column(2);
+	return Math::is_equal_approx(x.length_squared(), 1) && Math::is_equal_approx(y.length_squared(), 1) && Math::is_equal_approx(z.length_squared(), 1) && Math::is_zero_approx(x.dot(y)) && Math::is_zero_approx(x.dot(z)) && Math::is_zero_approx(y.dot(z));
+}
+
+// Returns true if the basis is conformal (orthogonal, uniform scale, preserves angles and distance ratios).
+// See https://en.wikipedia.org/wiki/Conformal_linear_transformation
+bool Basis::is_conformal() const {
+	const Vector3 x = get_column(0);
+	const Vector3 y = get_column(1);
+	const Vector3 z = get_column(2);
+	const real_t x_len_sq = x.length_squared();
+	return Math::is_equal_approx(x_len_sq, y.length_squared()) && Math::is_equal_approx(x_len_sq, z.length_squared()) && Math::is_zero_approx(x.dot(y)) && Math::is_zero_approx(x.dot(z)) && Math::is_zero_approx(y.dot(z));
+}
+
+// Returns true if the basis only has diagonal elements, so it may only have scale or flip, but no rotation, skew, or shear.
 bool Basis::is_diagonal() const {
 	return (
 			Math::is_zero_approx(rows[0][1]) && Math::is_zero_approx(rows[0][2]) &&
@@ -121,8 +126,9 @@ bool Basis::is_diagonal() const {
 			Math::is_zero_approx(rows[2][0]) && Math::is_zero_approx(rows[2][1]));
 }
 
+// Returns true if the basis is a pure rotation matrix, so it has no scale, skew, shear, or flip.
 bool Basis::is_rotation() const {
-	return Math::is_equal_approx(determinant(), 1, (real_t)UNIT_EPSILON) && is_orthogonal();
+	return is_conformal() && Math::is_equal_approx(determinant(), 1, (real_t)UNIT_EPSILON);
 }
 
 #ifdef MATH_CHECKS
@@ -257,27 +263,24 @@ void Basis::scale_orthogonal(const Vector3 &p_scale) {
 Basis Basis::scaled_orthogonal(const Vector3 &p_scale) const {
 	Basis m = *this;
 	Vector3 s = Vector3(-1, -1, -1) + p_scale;
+	bool sign = Math::sign(s.x + s.y + s.z);
+	Basis b = m.orthonormalized();
+	s = b.xform_inv(s);
 	Vector3 dots;
-	Basis b;
 	for (int i = 0; i < 3; i++) {
 		for (int j = 0; j < 3; j++) {
-			dots[j] += s[i] * Math::abs(m.get_column(i).normalized().dot(b.get_column(j)));
+			dots[j] += s[i] * abs(m.get_column(i).normalized().dot(b.get_column(j)));
 		}
+	}
+	if (sign != Math::sign(dots.x + dots.y + dots.z)) {
+		dots = -dots;
 	}
 	m.scale_local(Vector3(1, 1, 1) + dots);
 	return m;
 }
 
-float Basis::get_uniform_scale() const {
+real_t Basis::get_uniform_scale() const {
 	return (rows[0].length() + rows[1].length() + rows[2].length()) / 3.0f;
-}
-
-void Basis::make_scale_uniform() {
-	float l = (rows[0].length() + rows[1].length() + rows[2].length()) / 3.0f;
-	for (int i = 0; i < 3; i++) {
-		rows[i].normalize();
-		rows[i] *= l;
-	}
 }
 
 Basis Basis::scaled_local(const Vector3 &p_scale) const {
@@ -291,7 +294,7 @@ Vector3 Basis::get_scale_abs() const {
 			Vector3(rows[0][2], rows[1][2], rows[2][2]).length());
 }
 
-Vector3 Basis::get_scale_local() const {
+Vector3 Basis::get_scale_global() const {
 	real_t det_sign = SIGN(determinant());
 	return det_sign * Vector3(rows[0].length(), rows[1].length(), rows[2].length());
 }
@@ -418,7 +421,7 @@ void Basis::rotate_to_align(Vector3 p_start_direction, Vector3 p_end_direction) 
 		real_t dot = p_start_direction.dot(p_end_direction);
 		dot = CLAMP(dot, -1.0f, 1.0f);
 		const real_t angle_rads = Math::acos(dot);
-		set_axis_angle(axis, angle_rads);
+		*this = Basis(axis, angle_rads) * (*this);
 	}
 }
 
@@ -584,7 +587,7 @@ Vector3 Basis::get_euler(EulerOrder p_order) const {
 				euler.z = Math_PI / 2.0f;
 			}
 			return euler;
-		}
+		} break;
 		case EULER_ORDER_ZXY: {
 			// Euler angles in ZXY convention.
 			// See https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix
@@ -612,7 +615,7 @@ Vector3 Basis::get_euler(EulerOrder p_order) const {
 				euler.z = 0;
 			}
 			return euler;
-		}
+		} break;
 		case EULER_ORDER_ZYX: {
 			// Euler angles in ZYX convention.
 			// See https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix
@@ -683,7 +686,7 @@ void Basis::set_euler(const Vector3 &p_euler, EulerOrder p_order) {
 			*this = zmat * ymat * xmat;
 		} break;
 		default: {
-			ERR_FAIL_MSG("Invalid order parameter for set_euler(vec3,order)");
+			ERR_FAIL_MSG("Invalid Euler order parameter.");
 		}
 	}
 }
@@ -720,7 +723,7 @@ Basis::operator String() const {
 
 Quaternion Basis::get_quaternion() const {
 #ifdef MATH_CHECKS
-	ERR_FAIL_COND_V_MSG(!is_rotation(), Quaternion(), "Basis must be normalized in order to be casted to a Quaternion. Use get_rotation_quaternion() or call orthonormalized() if the Basis contains linearly independent vectors.");
+	ERR_FAIL_COND_V_MSG(!is_rotation(), Quaternion(), "Basis " + operator String() + " must be normalized in order to be casted to a Quaternion. Use get_rotation_quaternion() or call orthonormalized() if the Basis contains linearly independent vectors.");
 #endif
 	/* Allow getting a quaternion from an unnormalized transform */
 	Basis m = *this;
@@ -828,8 +831,8 @@ void Basis::get_axis_angle(Vector3 &r_axis, real_t &r_angle) const {
 	z = (rows[1][0] - rows[0][1]) / s;
 
 	r_axis = Vector3(x, y, z);
-	// CLAMP to avoid NaN if the value passed to acos is not in [0,1].
-	r_angle = Math::acos(CLAMP((rows[0][0] + rows[1][1] + rows[2][2] - 1) / 2, (real_t)0.0, (real_t)1.0));
+	// acos does clamping.
+	r_angle = Math::acos((rows[0][0] + rows[1][1] + rows[2][2] - 1) / 2);
 }
 
 void Basis::set_quaternion(const Quaternion &p_quaternion) {
@@ -847,7 +850,7 @@ void Basis::set_quaternion(const Quaternion &p_quaternion) {
 void Basis::set_axis_angle(const Vector3 &p_axis, real_t p_angle) {
 // Rotation matrix from axis and angle, see https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_angle
 #ifdef MATH_CHECKS
-	ERR_FAIL_COND_MSG(!p_axis.is_normalized(), "The axis Vector3 must be normalized.");
+	ERR_FAIL_COND_MSG(!p_axis.is_normalized(), "The axis Vector3 " + p_axis.operator String() + " must be normalized.");
 #endif
 	Vector3 axis_sq(p_axis.x * p_axis.x, p_axis.y * p_axis.y, p_axis.z * p_axis.z);
 	real_t cosine = Math::cos(p_angle);

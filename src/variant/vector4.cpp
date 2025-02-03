@@ -133,11 +133,12 @@ Vector4 Vector4::round() const {
 }
 
 Vector4 Vector4::lerp(const Vector4 &p_to, const real_t p_weight) const {
-	return Vector4(
-			x + (p_weight * (p_to.x - x)),
-			y + (p_weight * (p_to.y - y)),
-			z + (p_weight * (p_to.z - z)),
-			w + (p_weight * (p_to.w - w)));
+	Vector4 res = *this;
+	res.x = Math::lerp(res.x, p_to.x, p_weight);
+	res.y = Math::lerp(res.y, p_to.y, p_weight);
+	res.z = Math::lerp(res.z, p_to.z, p_weight);
+	res.w = Math::lerp(res.w, p_to.w, p_weight);
+	return res;
 }
 
 Vector4 Vector4::cubic_interpolate(const Vector4 &p_b, const Vector4 &p_pre_a, const Vector4 &p_post_b, const real_t p_weight) const {
@@ -217,5 +218,9 @@ Vector4::operator String() const {
 }
 
 static_assert(sizeof(Vector4) == 4 * sizeof(real_t));
+
+Vector4::operator Vector4i() const {
+	return Vector4i(x, y, z, w);
+}
 
 } // namespace godot

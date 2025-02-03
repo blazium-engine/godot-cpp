@@ -40,14 +40,22 @@ repos:
         language: python
         entry: python misc/scripts/copyright_headers.py
         files: \.(c|h)pp$
-        exclude: ^test/
+        exclude: |
+          (?x)^(
+            test/.*|
+            include/godot_cpp/variant/ok_color.hpp
+          )
 
       - id: header-guards
         name: header-guards
         language: python
         entry: python misc/scripts/header_guards.py
         files: \.hpp$
-        exclude: ^test/
+        exclude: |
+          (?x)^(
+            test/.*|
+            include/godot_cpp/variant/ok_color.hpp
+          )
 
       - id: file-format
         name: file-format

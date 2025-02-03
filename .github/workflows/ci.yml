@@ -1,11 +1,17 @@
 name: Continuous integration
-on: [push, pull_request]
+
+on:
+  push:
+  pull_request:
 
 env:
   # Only used for the cache key. Increment version to force clean build.
-  GODOT_BASE_BRANCH: master
+  BLAZIUM_BASE_BRANCH: blazium-dev
   # Used to select the version of Godot to run the tests with.
-  GODOT_TEST_VERSION: master
+  BLAZIUM_TEST_VERSION: 0.1.184
+  # Use UTF-8 on Linux.
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
 
 concurrency:
   group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}
@@ -91,7 +97,6 @@ jobs:
     env:
       SCONS_CACHE: ${{ github.workspace }}/.scons-cache/
       EM_VERSION: 3.1.39
-      EM_CACHE_FOLDER: "emsdk-cache"
 
     steps:
       - name: Checkout
@@ -108,10 +113,10 @@ jobs:
       - name: Set up Python (for SCons)
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: 3.x
 
       - name: Android dependencies
-        if: ${{ matrix.platform == 'android' }}
+        if: matrix.platform == 'android'
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r23c
@@ -122,7 +127,7 @@ jobs:
         uses: mymindstorm/setup-emsdk@v14
         with:
           version: ${{env.EM_VERSION}}
-          actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
+          no-cache: true
 
       - name: Setup MinGW for Windows/MinGW build
         if: ${{ matrix.platform == 'windows' && matrix.flags == 'use_mingw=yes' }}
@@ -161,10 +166,10 @@ jobs:
 
       - name: Download latest Godot artifacts
         uses: dsnopek/action-download-artifact@1322f74e2dac9feed2ee76a32d9ae1ca3b4cf4e9
-        if: ${{ matrix.run-tests && env.GODOT_TEST_VERSION == 'master' }}
+        if: matrix.run-tests && env.BLAZIUM_TEST_VERSION == 'blazium-dev'
         with:
-          repo: godotengine/godot
-          branch: master
+          repo: blazium-engine/blazium
+          branch: blazium-dev
           event: push
           workflow: linux_builds.yml
           workflow_conclusion: success
@@ -175,58 +180,34 @@ jobs:
           path: godot-artifacts
 
       - name: Prepare Godot artifacts for testing
-        if: ${{ matrix.run-tests && env.GODOT_TEST_VERSION == 'master' }}
+        if: matrix.run-tests && env.BLAZIUM_TEST_VERSION == 'blazium-dev'
         run: |
           chmod +x ./godot-artifacts/godot.linuxbsd.editor.x86_64.mono
-          echo "GODOT=$(pwd)/godot-artifacts/godot.linuxbsd.editor.x86_64.mono" >> $GITHUB_ENV
+          echo "BLAZIUM=$(pwd)/godot-artifacts/godot.linuxbsd.editor.x86_64.mono" >> $GITHUB_ENV
 
       - name: Download requested Godot version for testing
-        if: ${{ matrix.run-tests && env.GODOT_TEST_VERSION != 'master' }}
+        if: matrix.run-tests && env.BLAZIUM_TEST_VERSION != 'blazium-dev'
         run: |
-          wget "https://github.com/godotengine/godot-builds/releases/download/${GODOT_TEST_VERSION}/Godot_v${GODOT_TEST_VERSION}_linux.x86_64.zip" -O Godot.zip
-          unzip -a Godot.zip
-          chmod +x "Godot_v${GODOT_TEST_VERSION}_linux.x86_64"
-          echo "GODOT=$(pwd)/Godot_v${GODOT_TEST_VERSION}_linux.x86_64" >> $GITHUB_ENV
+          wget "https://cdn.blazium.app/nightly/${BLAZIUM_TEST_VERSION}/BlaziumEditor_v${BLAZIUM_TEST_VERSION}_linux.x86_64.zip" -O Blazium.zip
+          unzip -a Blazium.zip
+          chmod +x "BlaziumEditor_v${BLAZIUM_TEST_VERSION}_linux.x86_64"
+          echo "BLAZIUM=$(pwd)/BlaziumEditor_v${BLAZIUM_TEST_VERSION}_linux.x86_64" >> $GITHUB_ENV
 
       - name: Run tests
-        if: ${{ matrix.run-tests }}
+        if: matrix.run-tests
         run: |
-          $GODOT --headless --version
+          $BLAZIUM --headless --version
           cd test
           # Need to run the editor so .godot is generated... but it crashes! Ignore that :-)
-          (cd project && (timeout 30 $GODOT --import --headless >/dev/null 2>&1 || true))
+          (cd project && (timeout 30 $BLAZIUM --import --headless >/dev/null 2>&1 || true))
           ./run-tests.sh
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact-name }}
           path: ${{ matrix.artifact-path }}
           if-no-files-found: error
-
-  linux-cmake:
-    name: 🐧 Build (Linux, GCC, CMake)
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -qqq build-essential pkg-config cmake
-
-      - name: Build godot-cpp
-        run: |
-          cmake -DCMAKE_BUILD_TYPE=Release .
-          make -j $(nproc) VERBOSE=1
-
-      - name: Build test GDExtension library
-        run: |
-          cd test && cmake -DCMAKE_BUILD_TYPE=Release -DGODOT_HEADERS_PATH="../godot-headers" -DCPP_BINDINGS_PATH=".." .
-          make -j $(nproc) VERBOSE=1
 
   linux-cmake-ninja:
     name: 🐧 Build (Linux, GCC, CMake Ninja)
@@ -242,15 +223,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -qqq build-essential pkg-config cmake ninja-build
 
-      - name: Build godot-cpp
-        run: |
-          cmake -DCMAKE_BUILD_TYPE=Release -GNinja .
-          cmake --build . -j $(nproc) --verbose
-
       - name: Build test GDExtension library
         run: |
-          cd test && cmake -DCMAKE_BUILD_TYPE=Release -DGODOT_HEADERS_PATH="../godot-headers" -DCPP_BINDINGS_PATH=".." -GNinja .
-          cmake --build . -j $(nproc) --verbose
+          mkdir cmake-build
+          cd cmake-build
+          cmake ../ -DTEST_TARGET=template_release
+          cmake --build . --verbose -j $(nproc) -t godot-cpp-test --config Release
 
   windows-msvc-cmake:
     name: 🏁 Build (Windows, MSVC, CMake)
@@ -261,12 +239,9 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Build godot-cpp
-        run: |
-          cmake -DCMAKE_BUILD_TYPE=Release -G"Visual Studio 16 2019" .
-          cmake --build . --verbose --config Release
-
       - name: Build test GDExtension library
         run: |
-          cd test && cmake -DCMAKE_BUILD_TYPE=Release -DGODOT_HEADERS_PATH="../godot-headers" -DCPP_BINDINGS_PATH=".." -G"Visual Studio 16 2019" .
-          cmake --build . --verbose --config Release
+          mkdir cmake-build
+          cd cmake-build
+          cmake ../ -DTEST_TARGET=template_release
+          cmake --build . --verbose -t godot-cpp-test --config Release

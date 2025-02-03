@@ -146,7 +146,7 @@ struct _NO_DISCARD_ Rect2 {
 		return size.x > 0.0f && size.y > 0.0f;
 	}
 
-	// Returns the intersection between two Rect2s or an empty Rect2 if there is no intersection
+	// Returns the intersection between two Rect2s or an empty Rect2 if there is no intersection.
 	inline Rect2 intersection(const Rect2 &p_rect) const {
 		Rect2 new_rect = p_rect;
 
@@ -283,6 +283,10 @@ struct _NO_DISCARD_ Rect2 {
 		return Rect2(position + size.minf(0), size.abs());
 	}
 
+	_FORCE_INLINE_ Rect2 round() const {
+		return Rect2(position.round(), size.round());
+	}
+
 	Vector2 get_support(const Vector2 &p_normal) const {
 		Vector2 half_extents = size * 0.5f;
 		Vector2 ofs = position + half_extents;
@@ -305,14 +309,14 @@ struct _NO_DISCARD_ Rect2 {
 			i_f = i;
 
 			Vector2 r = (b - a);
-			float l = r.length();
+			const real_t l = r.length();
 			if (l == 0.0f) {
 				continue;
 			}
 
 			// Check inside.
 			Vector2 tg = r.orthogonal();
-			float s = tg.dot(center) - tg.dot(a);
+			const real_t s = tg.dot(center) - tg.dot(a);
 			if (s < 0.0f) {
 				side_plus++;
 			} else {
@@ -328,8 +332,8 @@ struct _NO_DISCARD_ Rect2 {
 			Vector2 t13 = (position - a) * ir;
 			Vector2 t24 = (end - a) * ir;
 
-			float tmin = Math::max(Math::min(t13.x, t24.x), Math::min(t13.y, t24.y));
-			float tmax = Math::min(Math::max(t13.x, t24.x), Math::max(t13.y, t24.y));
+			const real_t tmin = Math::max(Math::min(t13.x, t24.x), Math::min(t13.y, t24.y));
+			const real_t tmax = Math::min(Math::max(t13.x, t24.x), Math::max(t13.y, t24.y));
 
 			// if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
 			if (tmax < 0 || tmin > tmax || tmin >= l) {
